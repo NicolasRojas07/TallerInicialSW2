@@ -1,5 +1,7 @@
-package co.edu.uptc.taller.service;
+package co.edu.uptc.taller.service.impl;
 
-public class ReportService {
+import co.edu.uptc.taller.service.ReportService;
+
+public class ReportServiceImpl implements ReportService {
 
 }

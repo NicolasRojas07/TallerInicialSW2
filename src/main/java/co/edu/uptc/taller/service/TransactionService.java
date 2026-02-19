@@ -1,5 +1,5 @@
 package co.edu.uptc.taller.service;
 
-public class TransactionService {
+public interface TransactionService {
 
 }

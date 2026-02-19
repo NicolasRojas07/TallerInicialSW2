@@ -1,5 +1,5 @@
 package co.edu.uptc.taller.service;
 
-public class ReportService {
+public interface ReportService {
 
 }
