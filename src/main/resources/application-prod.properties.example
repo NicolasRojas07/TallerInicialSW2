@@ -1,0 +1,65 @@
+# Configuración de Producción
+# Copiar a application-prod.properties y ajustar valores
+
+spring.application.name=taller
+
+# MongoDB Configuration - PRODUCCIÓN
+spring.data.mongodb.uri=mongodb://usuario:password@mongodb-prod:27017/taller_financiero?authSource=admin
+spring.data.mongodb.auto-index-creation=true
+
+# Server Configuration
+server.port=8080
+
+# HTTPS Configuration - OBLIGATORIO EN PRODUCCIÓN
+server.ssl.enabled=true
+server.ssl.key-store=classpath:keystore.p12
+server.ssl.key-store-password=${SSL_KEYSTORE_PASSWORD}
+server.ssl.key-store-type=PKCS12
+server.ssl.key-alias=tomcat
+
+# Logging Configuration - Producción
+logging.level.root=WARN
+logging.level.co.edu.uptc.taller=INFO
+logging.level.org.springframework.security=WARN
+logging.level.org.springframework.data.mongodb=WARN
+
+# Archivo de logs
+logging.file.name=/var/log/taller-financiero/application.log
+logging.file.max-size=10MB
+logging.file.max-history=30
+
+# Performance Tuning - Optimizado para 5000 usuarios concurrentes
+server.tomcat.threads.max=200
+server.tomcat.threads.min-spare=20
+server.tomcat.accept-count=100
+server.tomcat.max-connections=10000
+
+# Connection Pool - Optimizado para producción
+spring.data.mongodb.max-pool-size=100
+spring.data.mongodb.min-pool-size=20
+spring.data.mongodb.max-wait-time=2000
+spring.data.mongodb.socket-timeout=5000
+spring.data.mongodb.connect-timeout=5000
+
+# Jackson Configuration
+spring.jackson.default-property-inclusion=non_null
+spring.jackson.serialization.write-dates-as-timestamps=false
+
+# Validation Configuration
+spring.mvc.throw-exception-if-no-handler-found=true
+spring.web.resources.add-mappings=true
+
+# Security - Producción
+# Descomentar cuando se implemente:
+# spring.security.user.name=${ADMIN_USERNAME}
+# spring.security.user.password=${ADMIN_PASSWORD}
+
+# Cache Configuration
+# TTL para cache (en segundos)
+cache.ttl.commissions=1800
+cache.ttl.reports=300
+
+# Monitoreo
+management.endpoints.web.exposure.include=health,info,metrics,prometheus
+management.endpoint.health.show-details=always
+management.metrics.export.prometheus.enabled=true

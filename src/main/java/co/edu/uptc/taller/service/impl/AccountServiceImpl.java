@@ -9,21 +9,30 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 
+/**
+ * Implementacion del servicio de cuentas.
+ * Gestiona la creacion y consulta de cuentas bancarias.
+ */
 @Service
-
 public class AccountServiceImpl implements AccountService {
+    
     @Autowired
     private AccountRepository accountRepository;
 
-
-
-
-
+    /**
+     * Crea una nueva cuenta para un usuario.
+     * Valida que el usuario no tenga ya una cuenta activa.
+     * 
+     * @param request Datos de la cuenta a crear
+     * @return Cuenta creada
+     * @throws RuntimeException si el usuario ya tiene una cuenta
+     */
     @Override
     public Account createAccount(CreateAccountRequest request) {
 
-        var existing = accountRepository.findByUserId(request.getUserId());
+        Optional<Account> existing = accountRepository.findByUserId(request.getUserId());
         if (existing.isPresent()) {
             throw new RuntimeException("ya existe una cuenta para ese userId: " + request.getUserId() + "");
         }
@@ -45,9 +54,16 @@ public class AccountServiceImpl implements AccountService {
         return accountRepository.save(account);
     }
 
-
+    /**
+     * Obtiene una cuenta por su ID.
+     * 
+     * @param id ID de la cuenta
+     * @return Cuenta encontrada
+     * @throws RuntimeException si no existe
+     */
     @Override
     public Account getAccountById(String id) {
-        return null;
+        return accountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + id));
     }
 }

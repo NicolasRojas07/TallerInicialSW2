@@ -1,6 +1,6 @@
 package co.edu.uptc.taller.dto;
 
-import jakarta.validation.constraints.*;
+import javax.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
