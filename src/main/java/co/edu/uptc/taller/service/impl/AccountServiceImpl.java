@@ -38,7 +38,7 @@ public class AccountServiceImpl implements AccountService {
         }
 
         String currency = request.getCurrency();
-        if (currency == null || currency.isBlank()) {
+        if (currency == null || currency.trim().isEmpty()) {
             currency = "COP";
         }
 

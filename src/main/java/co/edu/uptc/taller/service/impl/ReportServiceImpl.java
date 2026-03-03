@@ -64,7 +64,7 @@ public class ReportServiceImpl implements ReportService {
     @Cacheable(value = "accountSummaries", key = "#accountId")
     public TransactionSummaryResponse getAccountTransactionSummary(String accountId) {
         List<Transaction> transactions = transactionRepository.findByAccountId(accountId);
-        String userId = transactions.isEmpty() ? null : transactions.get(0).getUserId();
+        String userId = transactions.isEmpty() ? null : transactions.getFirst().getUserId();
         return buildSummary(userId, accountId, transactions);
     }
 
