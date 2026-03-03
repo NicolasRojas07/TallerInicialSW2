@@ -29,11 +29,14 @@ public class MongoConfig {
      * Trade-off: Garantiza consistencia (ACID) pero reduce throughput.
      * Critico para operaciones como procesar transaccion (actualizar saldo + crear registro).
      * 
+     * NOTA: Las transacciones requieren MongoDB en modo Replica Set.
+     * Para desarrollo local con MongoDB standalone, este bean está deshabilitado.
+     * 
      * @param dbFactory Factory de base de datos MongoDB
      * @return Gestor de transacciones
      */
-    @Bean
-    public MongoTransactionManager transactionManager(MongoDatabaseFactory dbFactory) {
-        return new MongoTransactionManager(dbFactory);
-    }
+    // @Bean
+    // public MongoTransactionManager transactionManager(MongoDatabaseFactory dbFactory) {
+    //     return new MongoTransactionManager(dbFactory);
+    // }
 }

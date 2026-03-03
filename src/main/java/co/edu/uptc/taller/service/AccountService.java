@@ -12,4 +12,5 @@ public interface AccountService {
 
     Account createAccount(CreateAccountRequest request);
     Account getAccountById(String id);
+    Account getAccountByUserId(String userId);
 }

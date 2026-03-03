@@ -22,7 +22,7 @@ public class CreateTransactionRequest {
     @NotBlank(message = "UserId is required")
     private String userId;
 
-    @NotBlank(message = "AccountId is required")
+    // accountId es opcional: si no se envía, el sistema busca la cuenta por userId
     private String accountId;
 
     @NotNull(message = "Amount is required")

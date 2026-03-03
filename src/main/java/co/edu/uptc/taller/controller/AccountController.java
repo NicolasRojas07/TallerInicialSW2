@@ -50,6 +50,17 @@ public class AccountController {
     }
 
     /**
+     * Obtiene la cuenta del usuario autenticado por su userId lógico.
+     * Permite al frontend cargar la cuenta del usuario sin conocer el Account ID interno.
+     */
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<AccountResponse> getAccountByUserId(@PathVariable String userId) {
+        Account account = accountService.getAccountByUserId(userId);
+        AccountResponse response = convertToResponse(account);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Convierte Account a AccountResponse.
      * 
      * @param account Entidad a convertir

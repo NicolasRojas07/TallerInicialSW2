@@ -55,20 +55,25 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(withDefaults())
-                // CSRF deshabilitado para API REST stateless - Trade-off: rendimiento vs seguridad
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(requests -> requests
-                        // Permite acceso publico al frontend
-                        .requestMatchers("/", "/index.html", "/styles.css", "/app.js").permitAll()
-                        // Todos los endpoints de API requieren autenticacion
-                        .requestMatchers("/api/**").authenticated()
-                        .anyRequest().authenticated())
-                // HTTP Basic Authentication - simple pero efectiva con HTTPS
-                .httpBasic(withDefaults())
-                // Sesiones stateless para mejor rendimiento con alta concurrencia - Trade-off: rendimiento
-                .sessionManagement(management -> management
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+            .cors()
+            .and()
+            // CSRF deshabilitado para API REST stateless - Trade-off: rendimiento vs seguridad
+            .csrf().disable()
+            .authorizeRequests()
+                // Permite acceso publico al frontend
+                .antMatchers("/", "/index.html", "/styles.css", "/app.js", "/register.html", "/register.css", "/register.js").permitAll()
+                // Módulo de autenticación público (login y registro)
+                .antMatchers("/api/auth/**").permitAll()
+                // Todos los demás endpoints de API requieren autenticacion
+                .antMatchers("/api/**").authenticated()
+                .anyRequest().authenticated()
+            .and()
+            // HTTP Basic Authentication - simple pero efectiva con HTTPS
+            .httpBasic()
+            .and()
+            // Sesiones stateless para mejor rendimiento con alta concurrencia - Trade-off: rendimiento
+            .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
         return http.build();
     }

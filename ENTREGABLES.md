@@ -24,30 +24,38 @@ Sistema de transacciones financieras desarrollado en Spring Boot + MongoDB que b
   - Valida saldo suficiente
   - Calcula comisión según tipo
   - Genera hash de integridad SHA-256
-  - Persiste atomicamente (saldo + transacción)
+  - Persiste atomicamente (saldo + transacción) *
 - **ComissionService**: Cálculo de comisiones con cache
   - Inicializa reglas por defecto
   - Cache para optimizar cálculos frecuentes
 - **ReportService**: Generación de resúmenes con estadísticas
   - Agregaciones eficientes
   - Cache para reportes frecuentes
+- **AuthService**: Autenticación y registro de usuarios
+  - Login con validación BCrypt
+  - Registro con validación de unicidad
+  - Verificación de disponibilidad de username/email
+
+_* Nota: Transacciones MongoDB deshabilitadas para compatibilidad con MongoDB standalone_
 
 #### Controladores REST
 - **AccountController**: CRUD de cuentas
 - **TransactionController**: Procesamiento y consulta de transacciones
 - **ReportController**: Generación de reportes y resúmenes
+- **AuthController**: Autenticación y registro de usuarios (endpoints públicos)
 - **GlobalExceptionHandler**: Manejo centralizado de errores
 
 #### Configuración
-- **SecurityConfig**: Autenticación HTTP Basic, CORS, sesiones stateless
+- **SecurityConfig**: Autenticación HTTP Basic, CORS, sesiones stateless, endpoints públicos para autenticación
 - **CacheConfig**: Cache en memoria para comisiones y reportes
-- **MongoConfig**: Transacciones ACID y configuración de BD
+- **MongoConfig**: Configuración de BD (transacciones deshabilitadas para standalone)
 - **DataInitializer**: Datos de prueba en desarrollo
 
 #### Frontend
 - Interfaz web básica y funcional (HTML + CSS + JavaScript)
 - Gestión de cuentas, transacciones y reportes
-- Autenticación integrada
+- **Módulo de autenticación separado** con registro de usuarios
+- Mensajes inline sin ventanas emergentes (mejor UX)
 - Diseño responsive
 
 ### Características Técnicas
@@ -60,12 +68,16 @@ Sistema de transacciones financieras desarrollado en Spring Boot + MongoDB que b
 - Sesiones stateless para escalabilidad horizontal
 
 **Seguridad**:
-- Autenticación obligatoria en todos los endpoints
+- Autenticación obligatoria en endpoints del sistema bancario
+- Endpoints públicos para registro y login (módulo de autenticación)
 - Hash SHA-256 de integridad por transacción
+- Encriptación de contraseñas con BCrypt
 - Validación estricta de saldo y permisos
 - Auditoría (IP, sessionId, timestamps)
-- Transacciones atómicas para consistencia
+- Transacciones atómicas * (deshabilitadas para MongoDB standalone)
 - Bean Validation en inputs
+
+_* Para producción con alta concurrencia, configurar MongoDB como Replica Set y reactivar `@Transactional`_
 
 ---
 
@@ -98,6 +110,42 @@ Sistema de transacciones financieras desarrollado en Spring Boot + MongoDB que b
    - Latencia P95: <100ms
    - Latencia P99: <200ms
    - Disponibilidad: 99.5%
+
+---
+
+## 2. Documento Técnico: Patrón Adaptador ✅
+
+**Ubicación**: `docs/parte2-adaptador.md`
+
+### Contenido
+
+1. **Acoplamiento inicial identificado**:
+   - `TransactionServiceImpl` inyectaba directamente `AccountRepository` (MongoRepository — tecnología concreta)
+   - Dependencia directa hacia Spring Data MongoDB en la capa de negocio
+   - Inconsistencia: `ComissionService` sí se inyectaba como interfaz
+
+2. **Cambios encapsulados por el adaptador** (`AccountService`):
+   - Estrategia de resolución de cuenta (por ID o por userId)
+   - Tecnología de persistencia subyacente
+   - Validaciones de unicidad de cuenta por usuario
+   - Mensajes de error al consumidor
+   - Contratos internos de consulta (Spring Data MongoDB)
+
+3. **Mejora de modificabilidad** (ISO 25010):
+   - Clases a modificar si cambia la BD: de ≥3 a 1 (`AccountServiceImpl`)
+   - Inversión de dependencias: `TransactionService` depende de la abstracción, no de la implementación
+   - Escenario concreto: migrar a Redis solo requiere nueva implementación de la interfaz
+
+4. **Costo de la solución**:
+   - Archivos adicionales (interfaz + implementacion)
+   - Indirección AOP Spring (~1–3 µs por llamada — despreciable frente a MongoDB ~1–5 ms)
+   - Mayor superficie de mantenimiento cuando el contrato evoluciona
+
+5. **Escenarios donde el adaptador no es suficiente**:
+   - Cambio en el contrato de la interfaz (todos los implementadores deben actualizarse)
+   - Cambio radical del modelo de dominio (`Account` → agregado complejo)
+   - Operaciones que la interfaz no modela (bloqueo masivo, paginación)
+   - Consistencia transaccional entre agregados (requiere Saga/Outbox, no adaptador)
 
 ---
 
@@ -184,10 +232,7 @@ Sistema de transacciones financieras desarrollado en Spring Boot + MongoDB que b
 
 ```
 TallerInicialSW2/
-├── docs/
-│   ├── parte1-diseno-inicial.md
-│   ├── parte3-cambio-prioridad.md
-│   └── parte4-reflexion-tecnica.md
+
 ├── src/
 │   ├── main/
 │   │   ├── java/co/edu/uptc/taller/
@@ -213,8 +258,20 @@ TallerInicialSW2/
 1. **Levantar MongoDB**: `docker run -d -p 27017:27017 mongo:latest`
 2. **Compilar**: `./mvnw clean install`
 3. **Ejecutar**: `./mvnw spring-boot:run`
-4. **Acceder**: http://localhost:8080
-5. **Credenciales**: user1/password1, user2/password2, admin/admin123
+4. **Acceder**: 
+   - Login: http://localhost:8080
+   - Registro: http://localhost:8080/register.html
+5. **Credenciales precargadas**: 
+   - user1/password1
+   - user2/password2
+   - admin/admin123
+6. **Registrar nuevos usuarios**: Acceder a la página de registro (sin autenticación requerida)
+
+### Notas Importantes
+
+- **Transacciones MongoDB deshabilitadas**: El sistema funciona con MongoDB standalone (sin replica set). Las anotaciones `@Transactional` están comentadas en `AuthServiceImpl` y `TransactionServiceImpl` para compatibilidad.
+- **Módulo de autenticación**: Separado del sistema bancario principal con endpoints públicos en `/api/auth/**`
+- **Interfaz de usuario**: Mensajes inline integrados en el flujo del documento (sin ventanas emergentes flotantes)
 
 ---
 
@@ -226,9 +283,12 @@ TallerInicialSW2/
 ✅ **Código funcional, documentado y organizado**
 ✅ **Documentación técnica completa y detallada**
 ✅ **Frontend básico y funcional**
+✅ **Módulo de autenticación separado con registro de usuarios**
+✅ **Compatible con MongoDB standalone (sin replica set)**
 
 El sistema cumple con todos los objetivos de la práctica, demostrando:
 - Capacidad de implementar sistemas con múltiples atributos de calidad
 - Comprensión profunda de trade-offs arquitectónicos
 - Toma de decisiones técnicas fundamentadas
 - Adaptabilidad ante cambios de prioridades estratégicas
+- Arquitectura modular con separación de responsabilidades (autenticación vs sistema bancario)

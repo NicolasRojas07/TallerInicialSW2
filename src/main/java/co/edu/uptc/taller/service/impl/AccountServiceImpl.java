@@ -64,6 +64,13 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public Account getAccountById(String id) {
         return accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Account not found: " + id));
+                .orElseThrow(() -> new RuntimeException("Cuenta no encontrada con ID: " + id));
+    }
+
+    @Override
+    public Account getAccountByUserId(String userId) {
+        return accountRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException(
+                        "No tienes una cuenta activa aún. Créala en la pestaña 'Cuentas'."));
     }
 }

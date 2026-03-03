@@ -55,20 +55,31 @@ public class TransactionServiceImpl implements TransactionService {
      * @throws RuntimeException si falla alguna validacion
      */
     @Override
-    @Transactional
+    // @Transactional // Deshabilitado: requiere MongoDB Replica Set
     public TransactionResponse processTransaction(CreateTransactionRequest request) {
-        // Valida que la cuenta exista
-        Account account = accountRepository.findById(request.getAccountId())
-                .orElseThrow(() -> new RuntimeException("Account not found: " + request.getAccountId()));
+        // Resuelve la cuenta: si se envía accountId la busca por ID, si no la busca por userId
+        Account account;
+        if (request.getAccountId() != null && !request.getAccountId().isBlank()) {
+            account = accountRepository.findById(request.getAccountId())
+                    .orElseThrow(() -> new RuntimeException("Cuenta no encontrada con ID: " + request.getAccountId()));
+        } else {
+            account = accountRepository.findByUserId(request.getUserId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "No existe cuenta activa para el usuario: " + request.getUserId() +
+                            ". Crea primero una cuenta en el módulo 'Cuentas'."));
+        }
+
+        // Asegura que accountId quede poblado en el request para el resto del flujo
+        request.setAccountId(account.getId());
 
         // Valida que la cuenta este activa - Atributo de Seguridad
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new RuntimeException("Account is not active: " + request.getAccountId());
+            throw new RuntimeException("La cuenta no está activa: " + account.getId());
         }
 
         // Valida que el usuario de la transaccion coincida con el de la cuenta - Atributo de Seguridad
         if (!account.getUserId().equals(request.getUserId())) {
-            throw new RuntimeException("User does not own this account");
+            throw new RuntimeException("El usuario no es dueño de esta cuenta");
         }
 
         // Calcula la comision aplicable

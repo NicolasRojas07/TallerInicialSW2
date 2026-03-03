@@ -8,102 +8,99 @@
 </head>
 <body>
     <div class="container">
-        <header>
+        <header id="loginHeader">
             <h1>Sistema de Transacciones Financieras</h1>
             <div id="authSection">
                 <input type="text" id="username" placeholder="Usuario">
-                <input type="password" id="password" placeholder="Contraseña">
+                <input type="password" id="password" placeholder="Contraseña" onkeypress="if(event.key==='Enter') login()">
                 <button onclick="login()">Iniciar Sesión</button>
-                <span id="authStatus"></span>
+                <div class="register-link">
+                    <p>¿No tienes cuenta? <a href="register.html">Regístrate aquí</a></p>
+                </div>
             </div>
         </header>
 
+        <header id="userHeader" style="display: none;">
+            <h1>Sistema de Transacciones Financieras</h1>
+            <div class="user-info">
+                <span class="welcome-text">Bienvenido, <strong id="currentUser"></strong></span>
+                <button onclick="logout()" class="btn-logout">Cerrar Sesión</button>
+            </div>
+        </header>
+
+        <div id="messageBox" class="message-box"></div>
+
         <div class="content" id="mainContent" style="display: none;">
+
             <div class="tabs">
-                <button class="tab-button active" onclick="showTab('accounts')">Cuentas</button>
-                <button class="tab-button" onclick="showTab('transactions')">Transacciones</button>
-                <button class="tab-button" onclick="showTab('reports')">Reportes</button>
+                <button class="tab-button active" onclick="showTab('accounts')">1. Cuentas</button>
+                <button class="tab-button" onclick="showTab('transactions')">2. Transacciones</button>
+                <button class="tab-button" onclick="showTab('reports')">3. Reportes</button>
             </div>
 
-            <!-- Tab: Cuentas -->
             <div id="accountsTab" class="tab-content active">
-                <h2>Gestión de Cuentas</h2>
-                
+                <h2>Mi Cuenta</h2>
+                <p class="section-help">
+                    Crea tu cuenta bancaria con un saldo inicial. Solo puedes tener una cuenta activa.
+                </p>
+
                 <div class="section">
-                    <h3>Crear Nueva Cuenta</h3>
+                    <h3>Crear cuenta</h3>
                     <form id="createAccountForm" onsubmit="createAccount(event)">
-                        <input type="text" id="accountUserId" placeholder="User ID" required>
-                        <input type="number" id="initialBalance" placeholder="Saldo Inicial" step="0.01" required>
-                        <input type="text" id="currency" placeholder="Moneda (COP)" value="COP">
-                        <button type="submit">Crear Cuenta</button>
+                        <input type="number" id="initialBalance" placeholder="Saldo inicial (COP)" step="0.01" min="0" required>
+                        <input type="text" id="currency" placeholder="Moneda" value="COP" readonly style="background:#f0f0f0;">
+                        <button type="submit">Crear mi cuenta</button>
                     </form>
                 </div>
 
                 <div class="section">
-                    <h3>Consultar Cuenta</h3>
-                    <input type="text" id="accountIdQuery" placeholder="Account ID">
-                    <button onclick="getAccount()">Buscar</button>
+                    <h3>Estado de mi cuenta</h3>
+                    <button onclick="loadMyAccount()">Actualizar</button>
                     <div id="accountDetails"></div>
                 </div>
             </div>
 
-            <!-- Tab: Transacciones -->
             <div id="transactionsTab" class="tab-content">
-                <h2>Procesamiento de Transacciones</h2>
-                
+                <h2>Registrar Transacción</h2>
+                <p class="section-help">
+                    Selecciona el tipo, indica el monto y el sistema valida tu saldo, calcula la comisión y registra la operación.
+                </p>
+
                 <div class="section">
                     <h3>Nueva Transacción</h3>
                     <form id="createTransactionForm" onsubmit="createTransaction(event)">
-                        <input type="text" id="transUserId" placeholder="User ID" required>
-                        <input type="text" id="transAccountId" placeholder="Account ID" required>
-                        <input type="number" id="amount" placeholder="Monto" step="0.01" required>
                         <select id="transactionType" required>
-                            <option value="">Seleccione tipo...</option>
-                            <option value="TRANSFER">Transferencia</option>
-                            <option value="DEPOSIT">Depósito</option>
-                            <option value="WITHDRAWAL">Retiro</option>
-                            <option value="PAYMENT">Pago</option>
+                            <option value="">Seleccione tipo de transacción...</option>
+                            <option value="DEPOSIT">Depósito (suma saldo)</option>
+                            <option value="WITHDRAWAL">Retiro (resta saldo + comisión)</option>
+                            <option value="PAYMENT">Pago (resta saldo + comisión)</option>
+                            <option value="TRANSFER">Transferencia (resta saldo + comisión)</option>
                         </select>
-                        <input type="text" id="description" placeholder="Descripción">
+                        <input type="number" id="amount" placeholder="Monto (COP)" step="0.01" min="0.01" required>
+                        <input type="text" id="description" placeholder="Descripción (opcional)">
                         <button type="submit">Procesar Transacción</button>
                     </form>
                 </div>
 
                 <div class="section">
-                    <h3>Consultar Transacciones</h3>
-                    <div>
-                        <input type="text" id="transQueryUserId" placeholder="User ID">
-                        <button onclick="getTransactionsByUser()">Por Usuario</button>
-                    </div>
-                    <div>
-                        <input type="text" id="transQueryAccountId" placeholder="Account ID">
-                        <button onclick="getTransactionsByAccount()">Por Cuenta</button>
-                    </div>
+                    <h3>Mis Transacciones</h3>
+                    <button onclick="getTransactionsByUser()">Cargar mis transacciones</button>
                     <div id="transactionsList"></div>
                 </div>
             </div>
 
-            <!-- Tab: Reportes -->
             <div id="reportsTab" class="tab-content">
-                <h2>Reportes y Estadísticas</h2>
-                
-                <div class="section">
-                    <h3>Resumen por Usuario</h3>
-                    <input type="text" id="reportUserId" placeholder="User ID">
-                    <button onclick="getUserSummary()">Generar Resumen</button>
-                    <div id="userSummary"></div>
-                </div>
+                <h2>Resumen de Transacciones</h2>
+                <p class="section-help">
+                    Consulta el resumen de todas tus transacciones: total de operaciones, montos y comisiones acumuladas.
+                </p>
 
                 <div class="section">
-                    <h3>Resumen por Cuenta</h3>
-                    <input type="text" id="reportAccountId" placeholder="Account ID">
-                    <button onclick="getAccountSummary()">Generar Resumen</button>
-                    <div id="accountSummary"></div>
+                    <button onclick="getUserSummary()">Generar mi resumen</button>
+                    <div id="userSummary"></div>
                 </div>
             </div>
         </div>
-
-        <div id="messageBox" class="message-box"></div>
     </div>
 
     <script src="app.js"></script>

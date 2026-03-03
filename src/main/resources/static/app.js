@@ -4,40 +4,149 @@ const API_BASE = 'http://localhost:8080/api';
 // Credenciales de autenticacion
 let authHeader = '';
 
+// Usuario actualmente logueado (se usa como userId en cuentas y transacciones)
+let currentUsername = '';
+
 /**
- * Realiza login y guarda credenciales para peticiones posteriores.
- * Usa HTTP Basic Authentication.
+ * Realiza login contra el backend y solo inicia sesión
+ * si las credenciales son válidas.
+ * Usa el endpoint /api/auth/login para validar y,
+ * si es correcto, configura HTTP Basic para el resto de peticiones.
  */
 function login() {
-    const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
-    
+
     if (!username || !password) {
         showMessage('Por favor ingrese usuario y contraseña', 'error');
         return;
     }
+
+    // Construye cabecera Basic para futuras peticiones protegidas
+    const basicHeader = 'Basic ' + btoa(username + ':' + password);
+
+    // Llama al módulo de autenticación para validar credenciales
+    fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    })
+        .then(async response => {
+            let data = {};
+            try {
+                data = await response.json();
+            } catch (e) {
+                // Si no hay JSON válido, dejamos data vacío
+            }
+
+            if (response.ok && data.success) {
+                // Solo en este punto fijamos el authHeader global
+                authHeader = basicHeader;
+                loginSuccess(username);
+            } else {
+                authHeader = '';
+                const message = data.message || 'Usuario o contraseña incorrectos';
+                showMessage(message, 'error');
+            }
+        })
+        .catch(() => {
+            authHeader = '';
+            showMessage('Error de conexión. Intente nuevamente.', 'error');
+        });
+}
+
+/**
+ * Maneja el login exitoso: oculta login y muestra sistema bancario.
+ */
+function loginSuccess(username) {
+    currentUsername = username;
+
+    // Ocultar header de login
+    document.getElementById('loginHeader').style.display = 'none';
     
-    // Codifica credenciales en Base64 para Basic Auth
-    authHeader = 'Basic ' + btoa(username + ':' + password);
+    // Mostrar header de usuario autenticado
+    document.getElementById('userHeader').style.display = 'block';
+    document.getElementById('currentUser').textContent = username;
     
-    // Prueba credenciales haciendo una peticion simple
-    fetch(`${API_BASE}/accounts/test`, {
+    // Mostrar contenido del sistema bancario
+    document.getElementById('mainContent').style.display = 'block';
+    
+    // Guardar sesión en localStorage
+    localStorage.setItem('username', username);
+    localStorage.setItem('authHeader', authHeader);
+
+    // Cargar automáticamente la cuenta del usuario si existe
+    loadMyAccount();
+    
+    showMessage('Sesión iniciada correctamente', 'success');
+}
+
+/**
+ * Cierra la sesión del usuario.
+ */
+function logout() {
+    // Limpiar credenciales
+    authHeader = '';
+    currentUsername = '';
+    localStorage.removeItem('username');
+    localStorage.removeItem('authHeader');
+    
+    // Ocultar sistema bancario
+    document.getElementById('mainContent').style.display = 'none';
+    
+    // Ocultar header de usuario
+    document.getElementById('userHeader').style.display = 'none';
+    
+    // Mostrar header de login
+    document.getElementById('loginHeader').style.display = 'block';
+    
+    // Limpiar campos de login
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    
+    showMessage('Sesión cerrada', 'success');
+}
+
+/**
+ * Restaura la sesión si existe en localStorage validando
+ * que las credenciales sigan siendo aceptadas por el backend.
+ */
+function restoreSession() {
+    const savedUsername = localStorage.getItem('username');
+    const savedAuthHeader = localStorage.getItem('authHeader');
+
+    if (!savedUsername || !savedAuthHeader) {
+        return;
+    }
+
+    // Intenta validar sesión llamando a un endpoint protegido simples
+    authHeader = savedAuthHeader;
+
+    fetch(`${API_BASE}/users`, {
         headers: {
             'Authorization': authHeader
         }
     })
-    .then(() => {
-        document.getElementById('authStatus').textContent = `Conectado como: ${username}`;
-        document.getElementById('mainContent').style.display = 'block';
-        showMessage('Login exitoso', 'success');
-    })
-    .catch(() => {
-        // Asume que funciono si falla por 404 (endpoint no existe)
-        document.getElementById('authStatus').textContent = `Conectado como: ${username}`;
-        document.getElementById('mainContent').style.display = 'block';
-        showMessage('Login exitoso', 'success');
-    });
+        .then(response => {
+            if (response.ok) {
+                loginSuccess(savedUsername);
+            } else {
+                // Si ya no son válidas, limpia la sesión guardada
+                authHeader = '';
+                localStorage.removeItem('username');
+                localStorage.removeItem('authHeader');
+            }
+        })
+        .catch(() => {
+            // Ante error de red no asumimos sesión válida
+            authHeader = '';
+        });
 }
+
+// Restaurar sesión al cargar la página
+window.addEventListener('DOMContentLoaded', restoreSession);
 
 /**
  * Muestra/oculta tabs del frontend.
@@ -57,16 +166,22 @@ function showTab(tabName) {
 }
 
 /**
- * Muestra mensaje temporal al usuario.
+ * Muestra mensaje al usuario.
  */
 function showMessage(message, type) {
     const messageBox = document.getElementById('messageBox');
     messageBox.textContent = message;
     messageBox.className = `message-box ${type} show`;
     
-    setTimeout(() => {
-        messageBox.classList.remove('show');
-    }, 3000);
+    // Scroll suave hacia el mensaje
+    messageBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    // Auto-ocultar mensajes de error después de 5 segundos
+    if (type === 'error') {
+        setTimeout(() => {
+            messageBox.classList.remove('show');
+        }, 5000);
+    }
 }
 
 /**
@@ -101,23 +216,48 @@ async function apiRequest(url, options = {}) {
  */
 async function createAccount(event) {
     event.preventDefault();
-    
+
     const data = {
-        userId: document.getElementById('accountUserId').value,
+        userId:         currentUsername,
         initialBalance: parseFloat(document.getElementById('initialBalance').value),
-        currency: document.getElementById('currency').value || 'COP'
+        currency:       document.getElementById('currency').value || 'COP'
     };
-    
+
     try {
         const result = await apiRequest(`${API_BASE}/accounts`, {
             method: 'POST',
             body: JSON.stringify(data)
         });
-        
-        showMessage('Cuenta creada exitosamente. ID: ' + result.id, 'success');
+
+        showMessage(
+            `✓ Cuenta creada. Saldo inicial: ${result.balance.toFixed(2)} ${result.currency}.`,
+            'success'
+        );
         document.getElementById('createAccountForm').reset();
+        document.getElementById('currency').value = 'COP';
+        loadMyAccount();
     } catch (error) {
         // Error ya mostrado por apiRequest
+    }
+}
+
+/**
+ * Carga y muestra el estado actual de la cuenta del usuario logueado.
+ */
+async function loadMyAccount() {
+    if (!currentUsername) return;
+    try {
+        const account = await apiRequest(`${API_BASE}/accounts/user/${currentUsername}`);
+        document.getElementById('accountDetails').innerHTML = `
+            <div class="account-item">
+                <p><strong>Titular:</strong> ${account.userId}</p>
+                <p><strong>Saldo actual:</strong> <span style="font-size:1.3em; color:#2e7d32; font-weight:bold;">${account.currency} ${account.balance.toFixed(2)}</span></p>
+                <p><strong>Estado:</strong> ${account.status}</p>
+                <p><strong>Creada:</strong> ${new Date(account.createdAt).toLocaleString()}</p>
+            </div>`;
+    } catch (error) {
+        document.getElementById('accountDetails').innerHTML =
+            '<p style="color:#888;">Aún no tienes cuenta. Créala arriba.</p>';
     }
 }
 
@@ -156,23 +296,35 @@ async function getAccount() {
  */
 async function createTransaction(event) {
     event.preventDefault();
-    
-    const data = {
-        userId: document.getElementById('transUserId').value,
-        accountId: document.getElementById('transAccountId').value,
-        amount: parseFloat(document.getElementById('amount').value),
-        type: document.getElementById('transactionType').value,
-        description: document.getElementById('description').value
-    };
-    
+
+    const amount  = parseFloat(document.getElementById('amount').value);
+    const type    = document.getElementById('transactionType').value;
+    const desc    = document.getElementById('description').value.trim();
+
+    if (!amount || !type) {
+        showMessage('Completa todos los campos obligatorios.', 'error');
+        return;
+    }
+
+    // userId tomado del usuario logueado; accountId resuelto por el backend
+    const data = { userId: currentUsername, amount, type, description: desc };
+
     try {
         const result = await apiRequest(`${API_BASE}/transactions`, {
             method: 'POST',
             body: JSON.stringify(data)
         });
-        
-        showMessage(`Transacción procesada. ID: ${result.id}, Comisión: ${result.commission}`, 'success');
+
+        showMessage(
+            `✓ Transacción procesada. ` +
+            `Monto: ${result.amount.toFixed(2)} COP | ` +
+            `Comisión: ${result.commission.toFixed(2)} COP | ` +
+            `Total descontado: ${result.totalAmount.toFixed(2)} COP`,
+            'success'
+        );
         document.getElementById('createTransactionForm').reset();
+        // Actualiza el saldo visible en la pestaña Cuentas
+        loadMyAccount();
     } catch (error) {
         // Error ya mostrado por apiRequest
     }
@@ -182,15 +334,8 @@ async function createTransaction(event) {
  * Obtiene transacciones por usuario.
  */
 async function getTransactionsByUser() {
-    const userId = document.getElementById('transQueryUserId').value;
-    
-    if (!userId) {
-        showMessage('Ingrese un User ID', 'error');
-        return;
-    }
-    
     try {
-        const transactions = await apiRequest(`${API_BASE}/transactions/user/${userId}`);
+        const transactions = await apiRequest(`${API_BASE}/transactions/user/${currentUsername}`);
         displayTransactions(transactions);
     } catch (error) {
         document.getElementById('transactionsList').innerHTML = '';
@@ -247,15 +392,8 @@ function displayTransactions(transactions) {
  * Genera resumen de transacciones por usuario.
  */
 async function getUserSummary() {
-    const userId = document.getElementById('reportUserId').value;
-    
-    if (!userId) {
-        showMessage('Ingrese un User ID', 'error');
-        return;
-    }
-    
     try {
-        const summary = await apiRequest(`${API_BASE}/reports/user/${userId}/summary`);
+        const summary = await apiRequest(`${API_BASE}/reports/user/${currentUsername}/summary`);
         displaySummary(summary, 'userSummary');
     } catch (error) {
         document.getElementById('userSummary').innerHTML = '';
